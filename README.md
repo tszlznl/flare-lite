@@ -2,6 +2,9 @@
 
 `sites.yml` 就是全部数据。改完不用重启，下一次请求即生效。
 
+[![build](https://github.com/tszlznl/flare-lite/actions/workflows/build.yml/badge.svg)](https://github.com/tszlznl/flare-lite/actions/workflows/build.yml)
+`docker pull ghcr.io/tszlznl/flare-lite:latest`
+
 ## 快速开始
 
 ```bash
@@ -170,9 +173,12 @@ docker pull ghcr.io/tszlznl/flare-lite:<语义化版本>   # 仅在打 tag 后�
 
 构建前先跑 `gofmt -s` / `go vet` / `go test -race`，任一失败则不产出镜像。
 
-> ⚠️ 首次构建后如果匿名 `docker pull` 报 `denied`，是 GHCR 包默认私有导致的：
-> 到仓库 **Packages → 选中镜像 → Package settings → Danger Zone → Change visibility**
-> 改成 Public 即可。这一步无法由工作流完成，只能手动点一次。
+> 已实测：因为仓库是 public，包自动继承为公开，**匿名 `docker pull` 返回 200**，
+> 无需额外配置。若日后把仓库转成 private，匿名拉取会失败，届时到
+> **Packages → 镜像 → Package settings** 里单独调整可见性即可。
+>
+> 另外镜像列表里会看到两条 `unknown/unknown` 平台记录，那是 buildx 默认开启的
+> provenance/attestation，不是构建出错。
 
 ## 许可证
 
