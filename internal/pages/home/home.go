@@ -51,7 +51,9 @@ type entry struct {
 
 func RegisterRouting(e *echo.Echo) {
 	e.GET("/", pageHome)
+	e.HEAD("/", pageHome)
 	e.GET("/healthz", healthz)
+	e.HEAD("/healthz", healthz)
 }
 
 func healthz(c *echo.Context) error {

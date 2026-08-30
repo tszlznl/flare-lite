@@ -7,9 +7,7 @@ ARG GO_VERSION=1.26
 ARG ALPINE_VERSION=3.21
 
 # ---------- 构建阶段 ----------
-# --platform=$BUILDPLATFORM 让构建始终跑在本机架构上交叉编译，
-# 交叉编译出多架构产物，比在 QEMU 下跑 go build 快得多。
-FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
+FROM golang:${GO_VERSION}-alpine AS build
 
 ARG TARGETOS
 ARG TARGETARCH
