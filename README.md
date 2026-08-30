@@ -125,11 +125,14 @@ distroless 镜像内没有 `/usr/share/zoneinfo`，而本应用用 `time.Now()` 
 `{date}` 占位符并打印日志时间戳。缺时区数据时 Go 会**静默退回 UTC**，
 `{date}` 就会在早上 8 点（东八区）而不是午夜翻篇。
 
-Dockerfile 默认把 `Asia/Shanghai` 的单个时区文件拷进镜像，可换：
+时区数据库由 `main.go` 里的 `_ "time/tzdata"` 直接内嵌进二进制（约 +450 KB），
+因此镜像无需携带任何 zoneinfo 文件，运行期改时区也不用重新构建：
 
 ```bash
-docker build --build-arg TZ=Asia/Taipei -t flare-lite .
+docker run -d -p 5120:5120 -e TZ=Asia/Taipei flare-lite
 ```
+
+镜像默认 `TZ=Asia/Shanghai`。
 
 ### 数据持久化
 
@@ -150,6 +153,26 @@ distroless 没有 shell，`docker exec -it <c> sh` 是用不了的。官方提�
 docker build --build-arg DISTROLESS_TAG=debug-nonroot -t flare-lite:debug .
 docker run --entrypoint=sh -ti flare-lite:debug
 ```
+
+## 持续集成
+
+[`.github/workflows/build.yml`](./.github/workflows/build.yml)：**推送到 `main`
+或打 `v*.*.*` 标签即自动构建并推送多架构镜像**（linux/amd64 + linux/arm64）。
+PR 只构建不推送，用来验证 Dockerfile 没被改坏。
+
+镜像仓库用 **ghcr.io，不需要配置任何 secrets**——走 Actions 内置的 `GITHUB_TOKEN`。
+
+```bash
+docker pull ghcr.io/tszlznl/flare-lite:latest
+docker pull ghcr.io/tszlznl/flare-lite:sha-<短提交号>
+docker pull ghcr.io/tszlznl/flare-lite:<语义化版本>   # 仅在打 tag 后产生
+```
+
+构建前先跑 `gofmt -s` / `go vet` / `go test -race`，任一失败则不产出镜像。
+
+> ⚠️ 首次构建后如果匿名 `docker pull` 报 `denied`，是 GHCR 包默认私有导致的：
+> 到仓库 **Packages → 选中镜像 → Package settings → Danger Zone → Change visibility**
+> 改成 Public 即可。这一步无法由工作流完成，只能手动点一次。
 
 ## 许可证
 

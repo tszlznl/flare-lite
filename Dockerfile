@@ -15,12 +15,8 @@ FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS build
 
 ARG TARGETOS
 ARG TARGETARCH
-ARG TZ=Asia/Shanghai
 
 WORKDIR /src
-
-# tzdata 只为把时区文件取出来放进最终镜像，见下方说明
-RUN apk add --no-cache tzdata
 
 # 依赖层单独缓存，改源码不会重新下载模块
 COPY go.mod go.sum ./
@@ -31,23 +27,16 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
     go build -trimpath -ldflags "-s -w" -o /out/nav .
 
-# distroless 镜像里没有 /usr/share/zoneinfo，而本应用用 time.Now() 渲染
-# {date} 这类占位符并打印日志时间戳。缺时区数据时 Go 会静默退回 UTC，
-# {date} 就会在早上 8 点（东八区）而不是午夜翻篇。
-# 这里只取需要的那一个时区文件，避免把整个 zoneinfo（约 10 MB）塞进 2 MB 的镜像。
-RUN mkdir -p "/z/$(dirname "${TZ}")" && cp "/usr/share/zoneinfo/${TZ}" "/z/${TZ}"
-
 # ---------- 运行阶段 ----------
 # nonroot 变体以 uid 65534 运行；如需以 root 跑（省掉数据目录权限问题），
 # 构建时传 --build-arg DISTROLESS_TAG=latest。
 FROM ${DISTROLESS_REPO}:${DISTROLESS_TAG}
 
-ARG TZ=Asia/Shanghai
-
 COPY --from=build --chown=65534:65534 /out/nav /nav
-COPY --from=build /z/ /usr/share/zoneinfo/
 
-ENV TZ=${TZ}
+# 时区数据由 main.go 里的 `_ "time/tzdata"` 内嵌进二进制，
+# 所以这里只需给个默认值，运行期 -e TZ=... 即可覆盖，不必重新构建。
+ENV TZ=Asia/Shanghai
 # 数据文件写在 WORKDIR 下，挂 volume 即可持久化。
 # 注意：用 bind mount 挂空目录时，该目录需对 uid 65534 可写，
 # 否则首次运行生成 sites.yml 会失败（命名卷会自动继承镜像内属主，无此问题）。

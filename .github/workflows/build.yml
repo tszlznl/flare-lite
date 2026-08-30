@@ -1,0 +1,99 @@
+name: build
+
+# push 到 main 或打 v*.*.* 标签时构建并推送镜像到 ghcr.io；
+# PR 只构建不推送，用于验证 Dockerfile 没被改坏。
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 同一分支的新提交取消仍在排队/运行的旧任务，省 runner 时间
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write # 推送 ghcr.io 镜像所需
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  test:
+    name: 测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: 格式检查
+        run: |
+          bad=$(gofmt -s -l .)
+          if [ -n "$bad" ]; then
+            echo "以下文件未通过 gofmt -s："
+            echo "$bad"
+            gofmt -s -d .
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: 单元测试
+        run: go test -race -count=1 -coverprofile=coverage.out ./...
+
+      - name: 覆盖率摘要
+        run: go tool cover -func=coverage.out | tail -1
+
+  docker:
+    name: 构建并推送镜像
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # arm64 产物靠 QEMU 模拟；本项目的 Go 编译是交叉编译，
+      # 只有最终镜像导出会用到模拟，开销很小。
+      - uses: docker/setup-qemu-action@v4
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: 登录 GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 生成镜像标签
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # 保持默认开启的 provenance/attestation 有利于供应链验证，
+          # 代价是 GHCR 包页面会多出一条 unknown/unknown 平台记录。
+          # 介意列表脏的话，加一行 provenance: false 即可。
