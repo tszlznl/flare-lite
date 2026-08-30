@@ -1,0 +1,7 @@
+# 仓库内统一存 LF。Makefile 带 CRLF 会让部分 make 版本解析失败，
+# 也避免 Docker 构建时拿到 Windows 换行。
+* text=auto eol=lf
+
+*.exe  binary
+*.png  binary
+*.ico  binary

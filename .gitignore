@@ -1,0 +1,12 @@
+bin/
+nav.exe
+sites.yml
+server.log
+*.test
+coverage.out
+
+# 本地工具状态，不入库
+.commandcode/
+.idea/
+.vscode/
+.DS_Store

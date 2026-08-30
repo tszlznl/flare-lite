@@ -1,0 +1,201 @@
+/* 参考截图的表格样式：灰底表头 + 细分隔线 + 蓝色链接，其余留白。 */
+
+:root {
+	--bg: #ffffff;
+	--fg: #333333;
+	--fg-soft: #8a8a8a;
+	--line: #e8e8e8;
+	--line-strong: #d6d6d6;
+	--head-bg: #f2f2f2;
+	--head-fg: #444444;
+	--link: #2f6cb0;
+	--row-hover: #fafbfc;
+	--max-width: 1180px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+	margin: 0;
+	padding: 0;
+	background: var(--bg);
+	color: var(--fg);
+}
+
+body {
+	font: 14px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+	      "Microsoft JhengHei", "Noto Sans TC", "Helvetica Neue", Arial, sans-serif;
+	-webkit-font-smoothing: antialiased;
+}
+
+a {
+	color: var(--link);
+	text-decoration: none;
+}
+
+a:hover { text-decoration: underline; }
+
+.page {
+	max-width: var(--max-width);
+	margin: 0 auto;
+	padding: 40px 24px 64px;
+}
+
+/* ---------- 页头 ---------- */
+
+.page-head {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 24px;
+	flex-wrap: wrap;
+	margin-bottom: 20px;
+}
+
+.page-title {
+	margin: 0;
+	font-size: 20px;
+	font-weight: 600;
+	letter-spacing: .5px;
+	color: var(--head-fg);
+}
+
+.search {
+	display: flex;
+	gap: 8px;
+}
+
+.search-input {
+	width: 260px;
+	max-width: 60vw;
+	padding: 6px 10px;
+	font: inherit;
+	color: var(--fg);
+	background: #fff;
+	border: 1px solid var(--line-strong);
+	border-radius: 3px;
+	outline: none;
+}
+
+.search-input:focus { border-color: var(--link); }
+
+.search-btn {
+	padding: 6px 16px;
+	font: inherit;
+	color: var(--head-fg);
+	background: var(--head-bg);
+	border: 1px solid var(--line-strong);
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+.search-btn:hover { background: #e9e9e9; }
+
+/* ---------- 分组标题 ---------- */
+
+.group-title {
+	margin: 32px 0 12px;
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--head-fg);
+}
+
+.group-title:first-of-type { margin-top: 0; }
+
+/* ---------- 表格 ---------- */
+
+.table-wrap {
+	overflow-x: auto;
+}
+
+.nav-table {
+	width: 100%;
+	border-collapse: collapse;
+	border-spacing: 0;
+	table-layout: fixed;
+}
+
+.c-name { width: 26%; }
+.c-url  { width: 28%; }
+.c-desc { width: 46%; }
+
+.nav-table thead th {
+	padding: 11px 14px;
+	font-weight: 700;
+	text-align: left;
+	color: var(--head-fg);
+	background: var(--head-bg);
+	border-top: 1px solid var(--line);
+	border-bottom: 1px solid var(--line-strong);
+	white-space: nowrap;
+}
+
+.nav-table tbody td {
+	padding: 14px;
+	text-align: left;
+	vertical-align: top;
+	border-bottom: 1px solid var(--line);
+	word-wrap: break-word;
+	overflow-wrap: break-word;
+}
+
+.nav-table tbody tr:hover td { background: var(--row-hover); }
+
+.cell-name {
+	color: var(--fg);
+	font-weight: 500;
+}
+
+.cell-url a {
+	display: inline-block;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	vertical-align: bottom;
+}
+
+.cell-desc { color: var(--fg); }
+
+.muted { color: var(--fg-soft); }
+
+/* ---------- 页脚 ---------- */
+
+.page-foot {
+	margin-top: 20px;
+	font-size: 13px;
+	color: var(--fg-soft);
+}
+
+.empty {
+	margin: 48px 0;
+	text-align: center;
+	color: var(--fg-soft);
+}
+
+/* ---------- 窄屏：表格转为卡片式堆叠 ---------- */
+
+@media screen and (max-width: 640px) {
+	.page { padding: 24px 14px 48px; }
+
+	.nav-table,
+	.nav-table tbody,
+	.nav-table tr,
+	.nav-table td { display: block; width: 100%; }
+
+	.nav-table thead { display: none; }
+
+	.nav-table tbody tr {
+		padding: 10px 2px;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.nav-table tbody td {
+		padding: 2px 0;
+		border-bottom: 0;
+	}
+
+	.cell-url a { white-space: normal; word-break: break-all; }
+	.cell-name { font-weight: 600; }
+	.cell-desc { color: #555; }
+}

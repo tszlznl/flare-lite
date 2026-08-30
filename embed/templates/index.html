@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="color-scheme" content="light">
+	<title>{{.Title}}</title>
+	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🔖</text></svg>">
+	<link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+<main class="page">
+	<header class="page-head">
+		<h1 class="page-title">{{.Title}}</h1>
+		{{if .ShowSearch}}
+		<form class="search" action="/" method="get">
+			<input class="search-input" type="search" name="q" value="{{.Keyword}}"
+			       placeholder="搜尋名稱、網址或簡介" aria-label="搜尋連結" autocomplete="off">
+			<button class="search-btn" type="submit">搜尋</button>
+		</form>
+		{{end}}
+	</header>
+
+	{{if .Tables}}
+	{{range .Tables}}
+	{{if .Title}}<h2 class="group-title">{{.Title}}</h2>{{end}}
+	{{template "table" .}}
+	{{end}}
+	{{else}}
+	<p class="empty">沒有符合條件的連結。</p>
+	{{end}}
+
+	<footer class="page-foot">{{.Footer}}</footer>
+</main>
+</body>
+</html>
+
+{{define "table"}}
+<div class="table-wrap">
+	<table class="nav-table">
+		<colgroup>
+			<col class="c-name">
+			<col class="c-url">
+			<col class="c-desc">
+		</colgroup>
+		<thead>
+			<tr>
+				<th>名稱</th>
+				<th>URL</th>
+				<th>第一印象</th>
+			</tr>
+		</thead>
+		<tbody>
+			{{range .Rows}}
+			<tr>
+				<td class="cell-name">{{.Name}}</td>
+				<td class="cell-url"><a href="{{.Href}}"{{if $.NewTab}} target="_blank" rel="noopener noreferrer"{{end}}>{{.Display}}</a></td>
+				<td class="cell-desc">{{if .Desc}}{{.Desc}}{{else}}<span class="muted">—</span>{{end}}</td>
+			</tr>
+			{{end}}
+		</tbody>
+	</table>
+</div>
+{{end}}
