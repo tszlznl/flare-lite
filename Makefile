@@ -1,7 +1,8 @@
-.PHONY: run debug build test vet fmt docker clean
+.PHONY: run debug build test vet fmt docker docker-debug docker-multiarch clean
 
-APP     := nav
+APP     := flare-lite
 PORT    ?= 5120
+TZ      ?= Asia/Shanghai
 LDFLAGS := -s -w
 
 run:
@@ -24,7 +25,15 @@ fmt:
 	gofmt -w .
 
 docker:
-	docker build -t $(APP) .
+	docker build --build-arg TZ=$(TZ) -t $(APP) .
+
+# 带 busybox shell 的 distroless 变体，用于进容器排查
+docker-debug:
+	docker build --build-arg DISTROLESS_TAG=debug-nonroot -t $(APP):debug .
+
+docker-multiarch:
+	docker buildx build --platform linux/amd64,linux/arm64 \
+		--build-arg TZ=$(TZ) -t $(APP) . --push
 
 clean:
 	rm -rf bin

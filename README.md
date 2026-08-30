@@ -104,12 +104,59 @@ links:
 
 ## Docker
 
+运行时基础镜像用 [distroless](https://github.com/GoogleContainerTools/distroless) 的
+`static-debian13`：本应用 `CGO_ENABLED=0` 全静态编译、运行期不发起任何外部请求，
+所以不需要 glibc、也不需要 CA 证书。
+
 ```bash
-docker build -t nav .
-docker run -d -p 5120:5120 -v $(pwd)/data:/data --name nav nav
+docker build -t flare-lite .
+docker run -d -p 5120:5120 --name flare-lite flare-lite
 ```
 
-`sites.yml` 会生成在 `/data` 下，挂出来即可持久化。
+多架构（NAS / 树莓派常见）：
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t flare-lite . --push
+```
+
+### 时区
+
+distroless 镜像内没有 `/usr/share/zoneinfo`，而本应用用 `time.Now()` 渲染
+`{date}` 占位符并打印日志时间戳。缺时区数据时 Go 会**静默退回 UTC**，
+`{date}` 就会在早上 8 点（东八区）而不是午夜翻篇。
+
+Dockerfile 默认把 `Asia/Shanghai` 的单个时区文件拷进镜像，可换：
+
+```bash
+docker build --build-arg TZ=Asia/Taipei -t flare-lite .
+```
+
+### 数据持久化
+
+镜像以 uid `65534`（nonroot）运行，`/data` 是工作目录，`sites.yml` 生成在这里。
+
+- 命名卷会自动继承镜像内目录属主，直接挂即可：
+  `docker run -d -p 5120:5120 -v flare-lite-data:/data flare-lite`
+- 用 bind mount 挂**空宿主目录**时，该目录需要对 uid 65534 可写，
+  否则首次生成 `sites.yml` 会失败：`sudo chown 65534 ./data`
+- 嫌麻烦可退回 root 运行：`docker build --build-arg DISTROLESS_TAG=latest -t flare-lite .`
+
+### 调试
+
+distroless 没有 shell，`docker exec -it <c> sh` 是用不了的。官方提供带 busybox 的
+`:debug` 变体，构建时换标签即可：
+
+```bash
+docker build --build-arg DISTROLESS_TAG=debug-nonroot -t flare-lite:debug .
+docker run --entrypoint=sh -ti flare-lite:debug
+```
+
+## 许可证
+
+AGPL-3.0，见 [LICENSE](./LICENSE)。
+
+注意 AGPL 第 13 条：如果你修改后通过网络提供服务（导航站正是这种形态），
+必须向用户提供修改后的完整源码。个人自托管一般不受影响，但公开部署前值得了解。
 
 ## 来源
 
@@ -118,3 +165,7 @@ Go + Echo v5、YAML 文件存储、`go:embed` 内嵌资源、零 JS 服务端渲
 
 本仓库为独立实现，未复制 flare 的源码，但目录分层与设计思路受其影响。
 表格 UI 取自一份博客收藏列表的截图。
+
+容器打包思路来自[《使用以语言为中心的容器基础镜像 distroless》](https://soulteary.com/2021-10-14/use-language-centric-container-base-image-distroless.html)（2021）。
+该文的部分写法按现行 distroless 已经需要调整，本仓库的 Dockerfile 按官方现状实现，
+差异见 [Docker](#docker) 一节。

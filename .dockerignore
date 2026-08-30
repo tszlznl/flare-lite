@@ -1,0 +1,13 @@
+# 构建产物与本地状态不进上下文，避免把宿主机的 Windows exe 带进镜像层
+bin/
+.git/
+.gitignore
+.commandcode/
+sites.yml
+server.log
+*.exe
+*.test
+coverage.out
+Dockerfile
+.dockerignore
+README.md
