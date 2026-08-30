@@ -42,9 +42,9 @@ func StartDaemon(flags *model.Flags) {
 
 	addr := cmd.Address(define.AppFlags.Port)
 
-	// 启动即加载一次，顺带在缺失时生成示例数据，避免首个请求才报错。
+	// 启动时预加载数据（如有异常会自动回退至内置示例，不阻断服务启动）
 	if _, err := data.Load(); err != nil {
-		log.Fatalf("数据文件不可用：%v", err)
+		log.Printf("[警告] 数据文件预加载提示：%v", err)
 	}
 
 	log.Printf("书签数据：%s", define.ConfigPath())

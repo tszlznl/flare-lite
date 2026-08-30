@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"nav/config/data"
 	"nav/config/define"
 	"nav/config/model"
 )
@@ -23,8 +24,12 @@ func newTestHandler(t *testing.T) http.Handler {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("切换临时目录失败: %v", err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(origWd) })
+	t.Cleanup(func() {
+		data.ResetCache()
+		_ = os.Chdir(origWd)
+	})
 
+	data.ResetCache()
 	define.AppFlags = model.Flags{Config: "sites.yml"}
 
 	handler, err := NewRouter()

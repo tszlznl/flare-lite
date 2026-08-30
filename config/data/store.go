@@ -20,8 +20,8 @@ var (
 	loaded   bool
 )
 
-// Load 读取并解析数据文件。文件不存在时自动写入一份示例数据，
-// 通过对比 mtime + size 做进程内缓存，避免每次请求都读盘。
+// Load 读取并解析数据文件。文件不存在、不可读或语法错误时自动降级使用内置示例数据。
+// 通过对比 mtime + size 做进程内缓存，避免每次请求都重复读盘。
 func Load() (model.Data, error) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -29,10 +29,14 @@ func Load() (model.Data, error) {
 	path := define.ConfigPath()
 	info, err := os.Stat(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if os.IsNotExist(err) || os.IsPermission(err) {
 			return seed(path)
 		}
-		return cache, fmt.Errorf("检查数据文件 %s 失败: %w", path, err)
+		if !loaded {
+			log.Printf("[警告] 检查数据文件 %s 异常 (%v)，使用内置示例数据", path, err)
+			return fallbackMemoryData()
+		}
+		return cache, nil
 	}
 
 	if loaded && cacheMod != nil && info.ModTime().Equal(cacheMod.ModTime()) && info.Size() == cacheMod.Size() {
@@ -41,15 +45,43 @@ func Load() (model.Data, error) {
 
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return cache, fmt.Errorf("读取数据文件 %s 失败: %w", path, err)
+		if !loaded {
+			log.Printf("[警告] 读取数据文件 %s 失败 (%v)，使用内置示例数据", path, err)
+			return fallbackMemoryData()
+		}
+		return cache, nil
 	}
 
 	var result model.Data
 	if err := yaml.Unmarshal(raw, &result); err != nil {
+		if loaded {
+			log.Printf("[警告] 解析数据文件 %s 失败 (%v)，继续沿用上一版本数据", path, err)
+			return cache, nil
+		}
 		return cache, fmt.Errorf("解析数据文件 %s 失败，请检查 YAML 格式: %w", path, err)
 	}
 
 	cache, cacheMod, loaded = result, info, true
+	applyDefaults(&cache)
+	return cache, nil
+}
+
+// ResetCache 清空内存缓存（主要用于测试）
+func ResetCache() {
+	mu.Lock()
+	defer mu.Unlock()
+	loaded = false
+	cacheMod = nil
+	cache = model.Data{}
+}
+
+// fallbackMemoryData 解析并返回内置的默认示例数据
+func fallbackMemoryData() (model.Data, error) {
+	var result model.Data
+	if err := yaml.Unmarshal([]byte(_exampleYAML), &result); err != nil {
+		return cache, fmt.Errorf("解析内置示例数据失败: %w", err)
+	}
+	cache, loaded, cacheMod = result, true, nil
 	applyDefaults(&cache)
 	return cache, nil
 }
@@ -68,7 +100,7 @@ func Save(d model.Data) error {
 	if err != nil {
 		return fmt.Errorf("序列化数据失败: %w", err)
 	}
-	if err := os.WriteFile(define.ConfigPath(), out, 0o644); err != nil {
+	if err := os.WriteFile(define.ConfigPath(), out, 0o666); err != nil {
 		return fmt.Errorf("写入数据文件失败: %w", err)
 	}
 	mu.Lock()
