@@ -1,185 +1,202 @@
-# 轻量导航站 —— 技术栈对齐 soulteary/flare：Go + Echo v5，无数据库，资源内嵌，单文件部署。
+# flare-lite
 
-`sites.yml` 就是全部数据。改完不用重启，下一次请求即生效。
+> 极简高效的个人导航站 —— 基于 Go + Echo v5，无数据库、零 JavaScript、单 YAML 驱动、资源内嵌、单文件轻量部署。
 
 [![build](https://github.com/tszlznl/flare-lite/actions/workflows/build.yml/badge.svg)](https://github.com/tszlznl/flare-lite/actions/workflows/build.yml)
-`docker pull ghcr.io/tszlznl/flare-lite:latest`
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](./LICENSE)
+[![Docker Image](https://img.shields.io/badge/Docker-GHCR-blue?logo=docker)](https://github.com/tszlznl/flare-lite/pkgs/container/flare-lite)
 
-## 快速开始
+---
 
-```bash
-go run .                # 首次运行自动生成示例 sites.yml，监听 25000
-go run . -port 8080     # 换端口
-go run . -debug         # 调试模式：模板/样式改完刷新即生效，无需重编译
+## ✨ 核心特性
+
+- ⚡ **极致轻量**：纯 Go 全静态编译，单二进制独立运行；内存占用低（通常 < 15MB）。
+- 📝 **单文件数据源**：所有书签与站点配置均保存在单个 `sites.yml` 中。修改即刻生效，无需重启服务。
+- 🔒 **零 JavaScript & 强安全**：原生服务端 HTML 渲染，自带 `Content-Security-Policy: script-src 'none'`，完全杜绝前端脚本注入风险。
+- 🐳 **Alpine 运行时**：Docker 镜像基于 Alpine Linux 构建，内置标准 Shell 及基础工具，方便排查与日常维护。
+- 🌐 **国际化域名 (IDN)**：支持中文及非 ASCII 域名（如 `琳.tw`），自动且标准地转换为 Punycode（`xn--jgy.tw`）。
+- 📅 **动态日期占位符**：URL 支持 `{year}`, `{month}`, `{day}`, `{date}`, `{compact-date}`，方便收藏每日一变的历史归档或日报地址。
+- 🎨 **资源内嵌**：HTML 模板与 CSS 样式通过 `go:embed` 打包在二进制中，开箱即用。
+
+---
+
+## 🚀 快速开始
+
+### 方式一：Docker Compose（推荐）
+
+1. 创建 `docker-compose.yml`（仓库根目录下已内置）：
+
+```yaml
+services:
+  flare-lite:
+    image: ghcr.io/tszlznl/flare-lite:latest
+    container_name: flare-lite
+    restart: unless-stopped
+    ports:
+      - "25000:25000"
+    environment:
+      - TZ=Asia/Shanghai
+      - NAV_PORT=25000
+    volumes:
+      - ./data:/data
 ```
 
-浏览器打开 http://localhost:25000
-
-编译成单个可执行文件：
+2. 启动服务：
 
 ```bash
+docker compose up -d
+```
+
+3. 访问 **http://localhost:25000** 即可。首次启动会自动在挂载的 `./data` 目录下生成默认的 `sites.yml` 示例。
+
+---
+
+### 方式二：Docker 单命令运行
+
+```bash
+docker run -d \
+  --name flare-lite \
+  -p 25000:25000 \
+  -e TZ=Asia/Shanghai \
+  -v flare-lite-data:/data \
+  --restart unless-stopped \
+  ghcr.io/tszlznl/flare-lite:latest
+```
+
+> **提示**：如果使用宿主机目录挂载（如 `-v ./data:/data`），因为镜像以非 root 用户（uid:gid `65534:65534`）运行，初次挂载空目录时请确保该目录对 uid 65534 有写权限（`sudo chown -R 65534:65534 ./data`）。使用 Docker 命名卷时会自动处理属主，无此要求。
+
+---
+
+### 方式三：源码 / 本地二进制运行
+
+确保已安装 Go 1.22+ 环境：
+
+```bash
+# 运行（首次启动在当前目录自动创建 sites.yml）
+go run .
+
+# 换端口
+go run . -port 8080
+
+# 调试模式（修改 embed/templates 或 embed/assets 下文件后刷新即可见，免去重新编译）
+go run . -debug
+```
+
+编译独立二进制可执行文件：
+
+```bash
+# Linux / macOS
+go build -trimpath -ldflags "-s -w" -o bin/nav .
+
+# Windows (PowerShell)
 go build -trimpath -ldflags "-s -w" -o bin/nav.exe .
 ```
 
-产物不依赖任何外部文件，把 `nav` 和 `sites.yml` 放一起就能跑。
+产物不依赖任何外部动态链接库与模板文件，将编译生成的 `nav` 与 `sites.yml` 放置在同一目录即可运行。
 
-## 命令行参数
+---
 
-| 参数       | 环境变量       | 默认值       | 说明                             |
-| ---------- | -------------- | ------------ | -------------------------------- |
-| `-port`    | `NAV_PORT`     | `25000`      | 端口，或写完整的 `host:port`     |
-| `-config`  | `NAV_CONFIG`   | `sites.yml`  | 数据文件路径                     |
-| `-debug`   | `NAV_DEBUG=1`  | `false`      | 模板与样式改为读磁盘             |
+## ⚙️ 命令行参数与环境变量
 
-## 数据格式
+可以通过命令行参数或对应的环境变量控制服务行为。**命令行参数优先级高于环境变量**：
+
+| 命令行参数 | 对应环境变量 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `-port` | `NAV_PORT` | `25000` | 监听端口，可填写纯端口号（`25000`）或完整地址（`0.0.0.0:25000` / `127.0.0.1:25000`） |
+| `-config` | `NAV_CONFIG` | `sites.yml` | 书签数据文件路径（YAML 格式） |
+| `-debug` | `NAV_DEBUG` | `false` | 调试模式：设为 `1` 或 `true` 时，模板与静态样式将直接读取本地磁盘文件 |
+
+---
+
+## 📄 数据配置指南 (`sites.yml`)
+
+完整示例可参考仓库中的 [sites.example.yml](./sites.example.yml)。
 
 ```yaml
 site:
-  title: 連結收藏
-  footer: ""                # 留空则自动显示「共 N 條連結」/ 搜索结果统计
-  open_in_new_tab: true
-  show_search: true
+  title: 連結收藏               # 站点标题
+  footer: ""                   # 底部文本；留空则自动显示「共 N 條連結」或搜索结果统计
+  open_in_new_tab: true        # 链接是否在新标签页中打开
+  show_search: true            # 是否展示顶部搜索框
 
-# 可选：声明后 links 会按 group 拆成多张表，不声明就是一张平铺长表
+# 可选：声明分组。配置后 links 会按 group 分割为多张表格；不声明则统一平铺在单张表展示
 groups:
   - id: linux
     title: Linux 與自架
+  - id: life
+    title: 生活與閱讀
 
 links:
-  - name: 烤雞堡的筆記       # 名稱
-    link: https://wei.dev    # URL
-    desc: 討論 self-hosting 技術與雲端管理。   # 第一印象
-    group: linux             # 可选
-```
+  - name: 烤雞堡的筆記
+    link: https://wei.dev
+    desc: 討論 self-hosting 技術與雲端管理。
+    group: linux               # 对应 groups 中的 id（可选）
 
-`link` 可以省掉协议（`www.zaqizaba.xyz`），渲染时自动补 `https://`，
-但 URL 列仍按原样显示。也支持日期占位符，适合收藏每日一变的地址：
+  - name: 琳的備忘手札
+    link: https://琳.tw        # 支持中文域名，自动处理为标准 punycode
+    desc: Linux 企業運維知識。
+    group: linux
 
-```yaml
   - name: 今日日報
-    link: https://example.com/report/{compact-date}   # 20260830
+    link: https://example.com/report/{compact-date} # 20260831
+    desc: 支持日期占位符。
+    group: life
 ```
 
-可用占位符：`{year}` `{month}` `{day}` `{date}` `{compact-date}`。
+### 动态占位符
 
-## 项目结构
+在 `link` 字段中支持使用以下占位符，访问时会根据当前系统/容器时区自动替换：
 
-```
-├── cmd/                     命令行与环境变量解析
+| 占位符 | 替换示例 | 说明 |
+| :--- | :--- | :--- |
+| `{year}` | `2026` | 4 位年份 |
+| `{month}` | `08` | 2 位月份（补零） |
+| `{day}` | `31` | 2 位日期（补零） |
+| `{date}` | `2026-08-31` | 标准日期格式（ISO 8601） |
+| `{compact-date}` | `20260831` | 紧凑无分隔符日期 |
+
+---
+
+## 📂 项目结构
+
+```text
+├── cmd/                     # 命令行参数与环境变量解析
 ├── config/
-│   ├── data/                YAML 读写 + 基于 mtime 的进程内缓存
-│   ├── define/              全局启动参数与路径解析
-│   └── model/               数据结构，与 YAML 一一对应
-├── embed/                   编译期内嵌的模板与样式
-│   ├── templates/index.html
-│   └── assets/css/style.css
+│   ├── data/                # YAML 读写与基于 mtime 的轻量级内存缓存
+│   ├── define/              # 全局配置定义与路径规范化
+│   └── model/               # 数据结构定义
+├── embed/                   # 编译期内嵌资源
+│   ├── assets/css/          # 样式文件 (style.css)
+│   └── templates/           # 页面模板 (index.html)
 ├── internal/
-│   ├── fn/                  URL 规范化、动态占位符、punycode
-│   ├── pages/home/          首页渲染：过滤、分组、组装表格
-│   ├── resources/           模板渲染器 + 静态资源路由
-│   └── server/              Echo 组装与启动
-└── main.go
+│   ├── fn/                  # 辅助函数：URL 补全、动态日期占位符、RFC 3492 Punycode
+│   ├── pages/home/          # 首页渲染：关键词过滤、分组逻辑与表格生成
+│   ├── resources/           # 模板引擎与静态资源路由处理
+│   └── server/              # Echo v5 服务路由组装与生命周期管理
+├── Dockerfile               # 多阶段交叉编译与 Alpine 运行时镜像构建
+├── docker-compose.yml       # Docker Compose 编排文件
+├── sites.example.yml        # 示例配置文件
+└── main.go                  # 程序入口
 ```
 
-## 设计取舍
+---
 
-- **零 JavaScript**：响应头带 `Content-Security-Policy: script-src 'none'`，
-  搜索走 `<form method="get">`，全部逻辑在服务端。
-- **无数据库**：一个 YAML 文件即数据源，靠 mtime + size 判断是否失效，
-  不做 watch、不做常驻缓存刷新任务。
-- **模板自动转义**：数据里的任意内容都经 `html/template` 转义，
-  不用手工拼接 HTML 字符串。
-- **国际化域名**：`琳.tw` 这类域名在写进 `href` 前会转成 punycode
-  （`xn--jgy.tw`）。`html/template` 默认会对非 ASCII host 做百分号编码，
-  那不是合法的 host 写法。punycode 编码按 RFC 3492 自行实现，
-  期望值以 .NET `IdnMapping` 为基准做了对拍验证。
-
-## 待打磨
-
-当前是可直接跑通的 demo，以下是明确还没做、等你测完再定的部分：
-
-- 图标：参考图没有图标列，暂未加。可接 favicon 自动抓取或本地图标集。
-- 编辑界面：现在只能改 YAML 文件，flare 有个内置 CSV 编辑器，可参考。
-- 名称列可点击性：参考图里「名稱」是纯文本、只有 URL 是链接，
-  当前严格照图实现。若要整行可点需要调整表格语义。
-- 空简介目前显示 `—`，参考图是留白，一行 CSS 即可改回。
-- 深色模式、访问计数、链接存活检测。
-
-## Docker
-
-运行时基础镜像采用 [Alpine Linux](https://alpinelinux.org/)：轻量小巧（约 5MB），内置标准 Shell 与常用工具，便于日常运维和容器排查。
+## 🛠️ Makefile 快捷指令
 
 ```bash
-docker build -t flare-lite .
-docker run -d -p 25000:25000 --name flare-lite flare-lite
+make run              # 本地启动（监听 25000 端口）
+make debug            # 启动调试模式
+make build            # 静态编译二进制产物至 bin/flare-lite
+make test             # 执行单元测试
+make vet              # 代码静态检查与格式验证
+make fmt              # 自动格式化 Go 代码
+make docker           # 本地构建 Docker 镜像
+make clean            # 清理编译生成文件
 ```
 
-多架构（NAS / 树莓派常见）：
+---
 
-```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t flare-lite . --push
-```
+## 📜 许可证与鸣谢
 
-### 时区
-
-镜像内置 `tzdata` 并默认设置 `TZ=Asia/Shanghai`，运行期可随时通过环境变量调整：
-
-```bash
-docker run -d -p 25000:25000 -e TZ=Asia/Taipei flare-lite
-```
-
-### 数据持久化
-
-镜像以非 root 用户（uid `65534`，`nobody:nobody`）运行，`/data` 是工作目录，`sites.yml` 生成在这里。
-
-- 命名卷会自动继承镜像内目录属主，直接挂即可：
-  `docker run -d -p 25000:25000 -v flare-lite-data:/data flare-lite`
-- 用 bind mount 挂**空宿主目录**时，该目录需要对 uid 65534 可写，
-  否则首次生成 `sites.yml` 会失败：`sudo chown 65534 ./data`
-
-### 容器排查与调试
-
-由于运行时基于 Alpine Linux，自带 Shell，排查时可直接进入容器终端：
-
-```bash
-docker exec -it flare-lite sh
-```
-
-## 持续集成
-
-[`.github/workflows/build.yml`](./.github/workflows/build.yml)：**推送到 `main`
-或打 `v*.*.*` 标签即自动构建并推送多架构镜像**（linux/amd64 + linux/arm64）。
-PR 只构建不推送，用来验证 Dockerfile 没被改坏。
-
-镜像仓库用 **ghcr.io，不需要配置任何 secrets**——走 Actions 内置的 `GITHUB_TOKEN`。
-
-```bash
-docker pull ghcr.io/tszlznl/flare-lite:latest
-docker pull ghcr.io/tszlznl/flare-lite:sha-<短提交号>
-docker pull ghcr.io/tszlznl/flare-lite:<语义化版本>   # 仅在打 tag 后产生
-```
-
-构建前先跑 `gofmt -s` / `go vet` / `go test -race`，任一失败则不产出镜像。
-
-> 已实测：因为仓库是 public，包自动继承为公开，**匿名 `docker pull` 返回 200**，
-> 无需额外配置。若日后把仓库转成 private，匿名拉取会失败，届时到
-> **Packages → 镜像 → Package settings** 里单独调整可见性即可。
->
-> 另外镜像列表里会看到两条 `unknown/unknown` 平台记录，那是 buildx 默认开启的
-> provenance/attestation，不是构建出错。
-
-## 许可证
-
-AGPL-3.0，见 [LICENSE](./LICENSE)。
-
-注意 AGPL 第 13 条：如果你修改后通过网络提供服务（导航站正是这种形态），
-必须向用户提供修改后的完整源码。个人自托管一般不受影响，但公开部署前值得了解。
-
-## 来源
-
-架构与技术栈参考 [soulteary/flare](https://github.com/soulteary/flare)（AGPL-3.0）：
-Go + Echo v5、YAML 文件存储、`go:embed` 内嵌资源、零 JS 服务端渲染。
-
-本仓库为独立实现，未复制 flare 的源码，但目录分层与设计思路受其影响。
-表格 UI 取自一份博客收藏列表的截图。
-
+- 本项目采用 **[AGPL-3.0](./LICENSE)** 许可证。
+- 整体架构与设计思路参考 [soulteary/flare](https://github.com/soulteary/flare)（AGPL-3.0），表格 UI 启发自社区精美博客书签分享。

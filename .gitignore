@@ -1,11 +1,13 @@
 bin/
 nav.exe
 sites.yml
+data/
 server.log
 *.test
 coverage.out
 
-# 本地工具状态，不入库
+# 本地工具与配置
+docker-compose.override.yml
 .commandcode/
 .idea/
 .vscode/

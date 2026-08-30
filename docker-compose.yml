@@ -1,0 +1,16 @@
+services:
+  flare-lite:
+    image: ghcr.io/tszlznl/flare-lite:latest
+    # 如需本地源码构建，可取消注释 build: . 并注释上面的 image 行
+    # build: .
+    container_name: flare-lite
+    restart: unless-stopped
+    ports:
+      - "25000:25000"
+    environment:
+      - TZ=Asia/Shanghai
+      - NAV_PORT=25000
+    volumes:
+      - ./data:/data
+      # 也可以单独挂载本地单个配置文件：
+      # - ./sites.yml:/data/sites.yml

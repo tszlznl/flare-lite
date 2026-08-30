@@ -1,0 +1,42 @@
+# 导航站点数据文件示例 (sites.yml)
+# 修改后无需重启应用，下一次刷新请求即刻生效。
+
+site:
+  title: 連結收藏
+  # footer 留空时自动显示「共 N 條連結」或搜索结果计数
+  footer: ""
+  open_in_new_tab: true
+  show_search: true
+
+# 可选分组配置：声明后 links 会按 group 分组拆成多张独立表格；不声明则为一张平铺表。
+groups:
+  - id: linux
+    title: Linux 與自架
+  - id: life
+    title: 生活與閱讀
+
+links:
+  - name: The Lunduke Journal
+    link: https://lunduke.com/
+    desc: 以反主流、偏向美國另類右派的觀點檢視 Linux 世界開發者的所作所為，有許多獨特的吐槽。
+    group: linux
+
+  - name: 烤雞堡的筆記
+    link: https://wei.dev
+    desc: 討論 self-hosting 技術與雲端管理。
+    group: linux
+
+  - name: 閱讀前哨站
+    link: https://readingoutpost.com/
+    desc: 推薦好書給忙碌的你，透過閱讀成為更好的自己。
+    group: life
+
+  - name: 琳的備忘手札
+    link: https://琳.tw
+    desc: Linux 企業運維知識（支持 IDN 國際化域名自動轉 punycode）。
+    group: linux
+
+  - name: 今日日報示例
+    link: https://example.com/report/{compact-date}
+    desc: 支持动态日期占位符：{year} {month} {day} {date} {compact-date}。
+    group: life
