@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	_defaultPort   = "5120"
+	_defaultPort   = "25000"
 	_defaultConfig = "sites.yml"
 )
 
@@ -22,7 +22,7 @@ func Parse() model.Flags {
 		Debug:  os.Getenv("NAV_DEBUG") == "1",
 	}
 
-	flag.StringVar(&flags.Port, "port", flags.Port, "监听端口，例如 5120 或 0.0.0.0:5120")
+	flag.StringVar(&flags.Port, "port", flags.Port, "监听端口，例如 25000 或 0.0.0.0:25000")
 	flag.StringVar(&flags.Config, "config", flags.Config, "书签数据文件路径（YAML）")
 	flag.BoolVar(&flags.Debug, "debug", flags.Debug, "调试模式：模板与样式改为从磁盘读取，改动即时生效")
 	flag.Parse()

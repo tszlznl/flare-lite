@@ -1,12 +1,10 @@
 # syntax=docker/dockerfile:1
 
-# 容器打包：以 distroless 静态镜像为运行时基础。
-# 本应用 CGO_ENABLED=0 全静态编译、且运行期不发起任何外部请求，
-# 因此用最小的 static 变体即可（约 2 MiB，比 alpine 还小一半）。
+# 容器打包：以 Alpine Linux 镜像为运行时基础。
+# 本应用 CGO_ENABLED=0 全静态编译，Alpine 体积小巧且自带常用工具与 Shell。
 
 ARG GO_VERSION=1.26
-ARG DISTROLESS_REPO=gcr.io/distroless/static-debian13
-ARG DISTROLESS_TAG=nonroot
+ARG ALPINE_VERSION=3.21
 
 # ---------- 构建阶段 ----------
 # --platform=$BUILDPLATFORM 让构建始终跑在本机架构上交叉编译，
@@ -28,24 +26,25 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
     go build -trimpath -ldflags "-s -w" -o /out/nav .
 
 # ---------- 运行阶段 ----------
-# nonroot 变体以 uid 65534 运行；如需以 root 跑（省掉数据目录权限问题），
-# 构建时传 --build-arg DISTROLESS_TAG=latest。
-FROM ${DISTROLESS_REPO}:${DISTROLESS_TAG}
+FROM alpine:${ALPINE_VERSION}
 
+# 安装基础 CA 证书与时区包
+RUN apk --no-cache add ca-certificates tzdata
+
+# 以 nonroot (nobody:nobody, uid:gid 65534:65534) 运行
 COPY --from=build --chown=65534:65534 /out/nav /nav
 
-# 时区数据由 main.go 里的 `_ "time/tzdata"` 内嵌进二进制，
-# 所以这里只需给个默认值，运行期 -e TZ=... 即可覆盖，不必重新构建。
+# 时区默认东八区，运行期可通过 -e TZ=... 覆盖
 ENV TZ=Asia/Shanghai
-# 数据文件写在 WORKDIR 下，挂 volume 即可持久化。
-# 注意：用 bind mount 挂空目录时，该目录需对 uid 65534 可写，
-# 否则首次运行生成 sites.yml 会失败（命名卷会自动继承镜像内属主，无此问题）。
-WORKDIR /data
 
-EXPOSE 5120
+# 数据文件写在 WORKDIR 下，挂 volume 即可持久化
+WORKDIR /data
+RUN chown 65534:65534 /data
+
+USER 65534:65534
+
+EXPOSE 25000
 VOLUME ["/data"]
 
-# distroless 没有 shell，ENTRYPOINT/CMD 必须用向量形式，
-# 否则运行时会试图拼接一个不存在的 shell 而启动失败。
 ENTRYPOINT ["/nav"]
-CMD ["-port", "5120"]
+CMD ["-port", "25000"]

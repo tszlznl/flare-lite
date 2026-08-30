@@ -8,12 +8,12 @@
 ## 快速开始
 
 ```bash
-go run .                # 首次运行自动生成示例 sites.yml，监听 5120
+go run .                # 首次运行自动生成示例 sites.yml，监听 25000
 go run . -port 8080     # 换端口
 go run . -debug         # 调试模式：模板/样式改完刷新即生效，无需重编译
 ```
 
-浏览器打开 http://localhost:5120
+浏览器打开 http://localhost:25000
 
 编译成单个可执行文件：
 
@@ -27,7 +27,7 @@ go build -trimpath -ldflags "-s -w" -o bin/nav.exe .
 
 | 参数       | 环境变量       | 默认值       | 说明                             |
 | ---------- | -------------- | ------------ | -------------------------------- |
-| `-port`    | `NAV_PORT`     | `5120`       | 端口，或写完整的 `host:port`     |
+| `-port`    | `NAV_PORT`     | `25000`      | 端口，或写完整的 `host:port`     |
 | `-config`  | `NAV_CONFIG`   | `sites.yml`  | 数据文件路径                     |
 | `-debug`   | `NAV_DEBUG=1`  | `false`      | 模板与样式改为读磁盘             |
 
@@ -107,13 +107,11 @@ links:
 
 ## Docker
 
-运行时基础镜像用 [distroless](https://github.com/GoogleContainerTools/distroless) 的
-`static-debian13`：本应用 `CGO_ENABLED=0` 全静态编译、运行期不发起任何外部请求，
-所以不需要 glibc、也不需要 CA 证书。
+运行时基础镜像采用 [Alpine Linux](https://alpinelinux.org/)：轻量小巧（约 5MB），内置标准 Shell 与常用工具，便于日常运维和容器排查。
 
 ```bash
 docker build -t flare-lite .
-docker run -d -p 5120:5120 --name flare-lite flare-lite
+docker run -d -p 25000:25000 --name flare-lite flare-lite
 ```
 
 多架构（NAS / 树莓派常见）：
@@ -124,37 +122,27 @@ docker buildx build --platform linux/amd64,linux/arm64 -t flare-lite . --push
 
 ### 时区
 
-distroless 镜像内没有 `/usr/share/zoneinfo`，而本应用用 `time.Now()` 渲染
-`{date}` 占位符并打印日志时间戳。缺时区数据时 Go 会**静默退回 UTC**，
-`{date}` 就会在早上 8 点（东八区）而不是午夜翻篇。
-
-时区数据库由 `main.go` 里的 `_ "time/tzdata"` 直接内嵌进二进制（约 +450 KB），
-因此镜像无需携带任何 zoneinfo 文件，运行期改时区也不用重新构建：
+镜像内置 `tzdata` 并默认设置 `TZ=Asia/Shanghai`，运行期可随时通过环境变量调整：
 
 ```bash
-docker run -d -p 5120:5120 -e TZ=Asia/Taipei flare-lite
+docker run -d -p 25000:25000 -e TZ=Asia/Taipei flare-lite
 ```
-
-镜像默认 `TZ=Asia/Shanghai`。
 
 ### 数据持久化
 
-镜像以 uid `65534`（nonroot）运行，`/data` 是工作目录，`sites.yml` 生成在这里。
+镜像以非 root 用户（uid `65534`，`nobody:nobody`）运行，`/data` 是工作目录，`sites.yml` 生成在这里。
 
 - 命名卷会自动继承镜像内目录属主，直接挂即可：
-  `docker run -d -p 5120:5120 -v flare-lite-data:/data flare-lite`
+  `docker run -d -p 25000:25000 -v flare-lite-data:/data flare-lite`
 - 用 bind mount 挂**空宿主目录**时，该目录需要对 uid 65534 可写，
   否则首次生成 `sites.yml` 会失败：`sudo chown 65534 ./data`
-- 嫌麻烦可退回 root 运行：`docker build --build-arg DISTROLESS_TAG=latest -t flare-lite .`
 
-### 调试
+### 容器排查与调试
 
-distroless 没有 shell，`docker exec -it <c> sh` 是用不了的。官方提供带 busybox 的
-`:debug` 变体，构建时换标签即可：
+由于运行时基于 Alpine Linux，自带 Shell，排查时可直接进入容器终端：
 
 ```bash
-docker build --build-arg DISTROLESS_TAG=debug-nonroot -t flare-lite:debug .
-docker run --entrypoint=sh -ti flare-lite:debug
+docker exec -it flare-lite sh
 ```
 
 ## 持续集成
@@ -195,6 +183,3 @@ Go + Echo v5、YAML 文件存储、`go:embed` 内嵌资源、零 JS 服务端渲
 本仓库为独立实现，未复制 flare 的源码，但目录分层与设计思路受其影响。
 表格 UI 取自一份博客收藏列表的截图。
 
-容器打包思路来自[《使用以语言为中心的容器基础镜像 distroless》](https://soulteary.com/2021-10-14/use-language-centric-container-base-image-distroless.html)（2021）。
-该文的部分写法按现行 distroless 已经需要调整，本仓库的 Dockerfile 按官方现状实现，
-差异见 [Docker](#docker) 一节。
