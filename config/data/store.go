@@ -79,21 +79,26 @@ func Save(d model.Data) error {
 }
 
 // seed 在首次运行时生成示例数据，随后照常返回。
+// 如果由于目录权限不足或只读挂载导致写入失败，则优雅降级为在内存中使用内置示例数据，避免请求报错。
 func seed(path string) (model.Data, error) {
-	if err := os.WriteFile(path, []byte(_exampleYAML), 0o644); err != nil {
-		return cache, fmt.Errorf("创建数据文件 %s 失败: %w", path, err)
-	}
-	log.Printf("未找到数据文件，已生成示例数据：%s", path)
-
 	var result model.Data
 	if err := yaml.Unmarshal([]byte(_exampleYAML), &result); err != nil {
 		return cache, fmt.Errorf("解析示例数据失败: %w", err)
 	}
+
+	if err := os.WriteFile(path, []byte(_exampleYAML), 0o666); err != nil {
+		log.Printf("未找到数据文件且无法自动写入 %s (%v)，将直接在内存中使用内置示例数据（只读模式）", path, err)
+		cache, loaded, cacheMod = result, true, nil
+		applyDefaults(&cache)
+		return cache, nil
+	}
+	log.Printf("未找到数据文件，已生成示例数据：%s", path)
+
 	info, statErr := os.Stat(path)
 	if statErr == nil {
 		cache, cacheMod, loaded = result, info, true
 	} else {
-		cache, loaded = result, false
+		cache, loaded, cacheMod = result, true, nil
 	}
 	applyDefaults(&cache)
 	return cache, nil

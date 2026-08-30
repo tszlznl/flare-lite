@@ -31,17 +31,13 @@ FROM alpine:${ALPINE_VERSION}
 # 安装基础 CA 证书与时区包
 RUN apk --no-cache add ca-certificates tzdata
 
-# 以 nonroot (nobody:nobody, uid:gid 65534:65534) 运行
-COPY --from=build --chown=65534:65534 /out/nav /nav
+COPY --from=build /out/nav /nav
 
 # 时区默认东八区，运行期可通过 -e TZ=... 覆盖
 ENV TZ=Asia/Shanghai
 
 # 数据文件写在 WORKDIR 下，挂 volume 即可持久化
 WORKDIR /data
-RUN chown 65534:65534 /data
-
-USER 65534:65534
 
 EXPOSE 25000
 VOLUME ["/data"]
